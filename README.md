@@ -2,7 +2,7 @@
 
 Scrap facebook live gaming page and extracts users and push them to faktory worker to parse their 
 detail(name, uid, username, number of follower, number of likes, contact details - email, social links) 
-and their posts(post-id, text, datetime, hashtags, links) and finally save them in MongoDB
+and their posts(post-id, text, datetime, hashtags, links, images) and finally save them in MongoDB
 
 #### Setup
 
