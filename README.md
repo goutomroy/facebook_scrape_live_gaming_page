@@ -1,10 +1,10 @@
-####Task
+#### Task
 
 Scrap facebook live gaming page and extracts users and push them to faktory worker to parse their 
 detail(name, uid, username, number of follower, number of likes, contact details - email, social links) 
 and their posts(post-id, text, datetime, hashtags, links) and finally save them in MongoDB
 
-####Setup
+#### Setup
 
 * Install [faktory](https://github.com/contribsys/faktory) server.
 * Install MongoDB.
@@ -13,7 +13,7 @@ and their posts(post-id, text, datetime, hashtags, links) and finally save them 
 * Configure `MongoConnnection.py` file.
 * Run first `consumer.py` and then `producer.py`. Scraping should be started now.
 
-####Todo 
+#### Todo 
 * Build a error database and send daily error report email to admin.
 * for now kept not retry mechanism, may be in future.
 * Pagination through live gaming page is done to aprse all live user 
