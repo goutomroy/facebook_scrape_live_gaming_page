@@ -7,7 +7,7 @@ and their posts(post-id, text, datetime, hashtags, links, images) and finally sa
 #### Setup
 
 * Install [faktory](https://github.com/contribsys/faktory) server.
-* Install MongoDB and create database `aggero_db` and two collection `user_details` and `posts`.
+* Install MongoDB and create database `aggero_fb` and two collection `user_details` and `posts`.
 * pip install -r requirements.txt
 * Change `URL_FACTORY` password in `utils.py` file.
 * Configure `MongoConnnection.py` file.
