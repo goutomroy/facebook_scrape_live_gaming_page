@@ -18,5 +18,6 @@ and their posts(post-id, text, datetime, hashtags, links) and finally save them 
 * for now kept not retry mechanism, may be in future.
 * Pagination through live gaming page is done to aprse all live user 
 but got few issues to paginate for infinite depth, for now its just first page to scrap.May be in future I will fix this issue.
+* By default I am running one worker process but you can modify it in `consumer.py` file as number of cores in your pc.
 
 
