@@ -1,13 +1,22 @@
-Run worker as a service.
+####Task
 
-Create producer which will insert entry task everyday at 5am.
+Scrap facebook live gaming page and extracts users and push them to faktory worker to parse their 
+detail(name, uid, username, number of follower, number of likes, contact details - email, social links) 
+and their posts(post-id, text, datetime, hashtags, links) and finally save them in MongoDB
 
-Worker entry task will paginate through Facebook live gaming see all page and scrap every user information and insert/update into database. Calculate score for every user
+####Setup
 
-Log error in file.
+* Install [faktory](https://github.com/contribsys/faktory) server.
+* Install MongoDB.
+* pip install -r requirements.txt
+* Change `URL_FACTORY` password in `utils.py` file.
+* Configure `MongoConnnection.py` file.
+* Run first `consumer.py` and then `producer.py`. Scraping should be started now.
 
-Readme
-
-Todo - send daily error report email to admin, flask to serve top influencers, 
+####Todo 
+* Build a error database and send daily error report email to admin.
+* for now kept not retry mechanism, may be in future.
+* Pagination through live gaming page is done to aprse all live user 
+but got few issues to paginate for infinite depth, for now its just first page to scrap.May be in future I will fix this issue.
 
 

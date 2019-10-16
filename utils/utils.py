@@ -30,25 +30,3 @@ def is_url(text):
     return False
 
 
-# logging.basicConfig(level=logging.DEBUG)
-# 5a222c23cba4c48a
-# http://localhost:7420/
-# https://www.facebook.com/pg/AlechOnly/about/
-# https://www.facebook.com/pg/picklesgaming/about/?ref=page_internal
-# https://www.facebook.com/pg/trautv/posts/?ref=page_internal
-# https://www.facebook.com/pg/trautv/posts/?ref=page_internal
-
-
-
-# def trycatch():
-#     try:
-#         a = 10
-#         b = 1/0
-#     except Exception as e:
-#         print('ex happened')
-#         logging.log(logging.CRITICAL, e)
-#         # raise e
-#     print(a)
-#
-# trycatch()
-
