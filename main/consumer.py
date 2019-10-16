@@ -1,19 +1,18 @@
 import logging
 from faktory import Worker
-
-from main.tasks import get_five_ips, get_an_ip
-from main.utils import URL_FACTORY
+from main.tasks import live_see_all, parse_profile, parse_posts
+from utils.utils import URL_FACTORY
 import multiprocessing
 
+logging.basicConfig(level=logging.INFO)
 
-# logging.basicConfig(level=logging.DEBUG)
-
-
-w = Worker(faktory=URL_FACTORY, queues=['default'], concurrency=multiprocessing.cpu_count())
-# fb_scrapper = FacebookScrapper()
-# w.register('gaming_home', fb_scrapper.gaming_home)
-# w.register('get_five_ips', get_five_ips)
-w.register('get_an_ip', get_an_ip)
-
-w.run()
+if __name__ == '__main__':
+    concurrency = multiprocessing.cpu_count()
+    w = Worker(faktory=URL_FACTORY, queues=['default', 'busy'], concurrency=1)
+    # w.register('gaming_home', gaming_home)
+    w.register('live_see_all', live_see_all)
+    w.register('parse_profile', parse_profile)
+    w.register('parse_posts', parse_posts)
+    # w.register('parse_profile_about', parse_profile_about)
+    w.run()
 
