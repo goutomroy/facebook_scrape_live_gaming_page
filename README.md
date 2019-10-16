@@ -14,6 +14,7 @@ and their posts(post-id, text, datetime, hashtags, links) and finally save them 
 * Run first `consumer.py` and then `producer.py`. Scraping should be started now.
 
 #### Todo 
+* Configure Tor for proxy.
 * Build a error database and send daily error report email to admin.
 * for now kept not retry mechanism, may be in future.
 * Pagination through live gaming page is done to aprse all live user 
