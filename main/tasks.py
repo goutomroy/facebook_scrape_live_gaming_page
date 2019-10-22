@@ -10,7 +10,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.MongoConnection import MongoConnnection
-from utils.utils import URL_FACTORY, URL_FACEBOOK_ROOT, is_valid_email, is_url
+from utils.utils import URL_FACTORY, URL_FACEBOOK_ROOT, is_valid_email, is_url, URL_FACEBOOK_LIVE_SEE_ALL
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from utils.utils import CHROME_DRIVER_PATH
@@ -22,38 +22,46 @@ logging.basicConfig(level=logging.INFO)
 def get_browser():
     options = Options()
     options.headless = True
+    # options.add_argument('--no-sandbox')
+    # options.add_argument('--disable-dev-shm-usage')
     browser = webdriver.Chrome(executable_path=CHROME_DRIVER_PATH, options=options)
     browser.implicitly_wait(30)
-    browser.set_page_load_timeout(30)
-    browser.set_script_timeout(30)
     browser.maximize_window()
     return browser
 
 
 def live_see_all():
-    url = "https://www.facebook.com/gaming/?section_id=dmg6MTg5MTU5MTMzMDg4MTE5Ng%3D%3D&view=all&previous_view=home"
     try:
         browser = get_browser()
-        browser.get(url)
-        depth = 0
-        for scroll in range(depth):
-            # Scroll down to bottom
+        browser.get(URL_FACEBOOK_LIVE_SEE_ALL)
+        last_height = browser.execute_script("return document.body.scrollHeight")
+        while True:
             browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(10)
-    except WebDriverException as we:
-        logging.log(logging.CRITICAL, we)
+            time.sleep(5)
+            new_height = browser.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
+
+    except Exception as e:
+        browser.quit()
+        logging.log(logging.CRITICAL, e)
+        raise e
+
+    try:
+        soup = BeautifulSoup(browser.page_source, 'lxml')
+        link_tags = soup.find_all("a")
+        uid_list = []
+        for tag in link_tags:
+            if all(each in tag.attrs for each in ['uid', 'data-hovercard']):
+                uid = tag['uid']
+                if uid not in uid_list:
+                    uid_list.append(uid)
+        browser.quit()
+    except Exception as e:
+        logging.log(logging.CRITICAL, "Dom changed in live_see_all page, report admin!")
         browser.quit()
         return
-
-    soup = BeautifulSoup(browser.page_source, 'lxml')
-    link_tags = soup.find_all("a")
-    uid_list = []
-    for tag in link_tags:
-        if all(each in tag.attrs for each in ['uid', 'data-hovercard']):
-            uid = tag['uid']
-            if uid not in uid_list:
-                uid_list.append(uid)
-    browser.quit()
 
     with faktory.connection(faktory=URL_FACTORY) as client:
         for uid in uid_list:
@@ -65,13 +73,13 @@ def parse_profile(uid):
     try:
         url = urllib.parse.urljoin(URL_FACEBOOK_ROOT, uid)
         browser = get_browser()
-        wait = WebDriverWait(browser, 20)
+        wait = WebDriverWait(browser, 10)
         wait.until(EC.url_changes(url))
         browser.get(url)
-    except WebDriverException as we:
-        logging.log(logging.CRITICAL, we)
+    except Exception as e:
         browser.quit()
-        return
+        logging.log(logging.CRITICAL, e)
+        raise e
 
     soup = BeautifulSoup(browser.page_source, 'lxml')
     user_data = dict()
@@ -157,14 +165,18 @@ def parse_posts(uid, username):
         url = '/'.join([URL_FACEBOOK_ROOT, 'pg', username, 'posts/'])
         browser = get_browser()
         browser.get(url)
-        depth = 0
-        for scroll in range(depth):
+        last_height = browser.execute_script("return document.body.scrollHeight")
+        while True:
             browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(15)
-    except WebDriverException as we:
-        logging.log(logging.CRITICAL, we)
+            time.sleep(5)
+            new_height = browser.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
+    except Exception as e:
         browser.quit()
-        return
+        logging.log(logging.CRITICAL, e)
+        raise e
 
     soup = BeautifulSoup(browser.page_source, 'lxml')
     k = soup.find_all(class_="_5pcr userContentWrapper")

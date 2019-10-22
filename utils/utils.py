@@ -2,11 +2,12 @@ import logging
 import re
 
 URL_FACTORY = 'tcp://:aggero@localhost:7419'
-CHROME_DRIVER_PATH = '/usr/lib/chromium-browser/chromedriver'
+CHROME_DRIVER_PATH = '/home/goutom/Downloads/chromedriver_linux64/chromedriver'
 MOZILLA_DRIVER_PATH = r"/usr/local/bin/geckodriver"
 
 URL_FACEBOOK_ROOT = 'https://www.facebook.com'
 URL_FACEBOOK_GAMING_HOME = 'https://www.facebook.com/gaming/?view=home'
+URL_FACEBOOK_LIVE_SEE_ALL = "https://www.facebook.com/gaming/?section_id=dmg6MTg5MTU5MTMzMDg4MTE5Ng%3D%3D&view=all&previous_view=home"
 
 PROXY = "socks5://localhost:9050"
 
