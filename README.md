@@ -20,3 +20,4 @@ update variable `CHROME_DRIVER_PATH` in `utils.py`.
 * Build a error database and send daily error report email to admin.
 * By default I am running one worker process but you can modify it in `consumer.py` file as number of cores in your pc.
 * Create index for MongoDB.
+* Write tests.
