@@ -3,7 +3,7 @@ import re
 
 URL_FACTORY = 'tcp://:aggero@localhost:7419'
 CHROME_DRIVER_PATH = '/home/goutom/Downloads/chromedriver_linux64/chromedriver'
-MOZILLA_DRIVER_PATH = r"/usr/local/bin/geckodriver"
+MOZILLA_DRIVER_PATH = "/usr/local/bin/geckodriver"
 
 URL_FACEBOOK_ROOT = 'https://www.facebook.com'
 URL_FACEBOOK_GAMING_HOME = 'https://www.facebook.com/gaming/?view=home'

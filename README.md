@@ -7,8 +7,8 @@ and their posts(post-id, text, datetime, hashtags, links, images) and finally sa
 #### Setup
 
 * Install [faktory](https://github.com/contribsys/faktory) server.
-* Check your installed google chrome version and then download corresponding google chrome driver from [here](https://chromedriver.chromium.org/downloads), then extract and 
-update variable `CHROME_DRIVER_PATH` in `utils.py`.
+* Download `geckodriver` for firefox from [here](https://github.com/mozilla/geckodriver/releases/), then extract and 
+update variable `MOZILLA_DRIVER_PATH` in `utils.py`.
 * Install MongoDB and create database `aggero_fb` and two collection `user_details` and `posts`.
 * pip install -r requirements.txt
 * Change `URL_FACTORY` password in `utils.py` file.

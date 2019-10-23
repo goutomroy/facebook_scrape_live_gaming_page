@@ -7,26 +7,33 @@ import faktory
 from bs4 import BeautifulSoup, Tag
 from selenium.common.exceptions import TimeoutException, WebDriverException, NoSuchElementException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.MongoConnection import MongoConnnection
-from utils.utils import URL_FACTORY, URL_FACEBOOK_ROOT, is_valid_email, is_url, URL_FACEBOOK_LIVE_SEE_ALL
+from utils.utils import URL_FACTORY, URL_FACEBOOK_ROOT, is_valid_email, is_url, URL_FACEBOOK_LIVE_SEE_ALL, \
+    MOZILLA_DRIVER_PATH
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from utils.utils import CHROME_DRIVER_PATH
 import re
 
 logging.basicConfig(level=logging.INFO)
 
 
 def get_browser():
+
     options = Options()
     options.headless = True
-    # options.add_argument('--no-sandbox')
-    # options.add_argument('--disable-dev-shm-usage')
-    browser = webdriver.Chrome(executable_path=CHROME_DRIVER_PATH, options=options)
+
+    fp = webdriver.FirefoxProfile()
+    fp.set_preference("browser.cache.disk.enable", False)
+    fp.set_preference("browser.cache.memory.enable", False)
+    fp.set_preference("browser.cache.offline.enable", False)
+    fp.set_preference("network.http.use-cache", False)
+    fp.update_preferences()
+    browser = webdriver.Firefox(executable_path=MOZILLA_DRIVER_PATH, options=options, firefox_profile=fp)
     browser.implicitly_wait(30)
     browser.maximize_window()
+    browser.delete_all_cookies()
     return browser
 
 
@@ -62,9 +69,9 @@ def live_see_all():
         logging.log(logging.CRITICAL, "Dom changed in live_see_all page, report admin!")
         browser.quit()
         return
-
+    print(json.dumps(uid_list))
     with faktory.connection(faktory=URL_FACTORY) as client:
-        for uid in uid_list:
+        for uid in uid_list[:5]:
             client.queue('parse_profile', args=[uid], queue='busy')
 
 
