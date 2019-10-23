@@ -30,6 +30,7 @@ def get_browser():
     fp.set_preference("browser.cache.offline.enable", False)
     fp.set_preference("network.http.use-cache", False)
     fp.update_preferences()
+
     browser = webdriver.Firefox(executable_path=MOZILLA_DRIVER_PATH, options=options, firefox_profile=fp)
     browser.implicitly_wait(30)
     browser.maximize_window()
@@ -52,7 +53,6 @@ def live_see_all():
 
     except Exception as e:
         browser.quit()
-        logging.log(logging.CRITICAL, e)
         raise e
 
     try:
@@ -65,13 +65,14 @@ def live_see_all():
                 if uid not in uid_list:
                     uid_list.append(uid)
         browser.quit()
+
     except Exception as e:
-        logging.log(logging.CRITICAL, "Dom changed in live_see_all page, report admin!")
         browser.quit()
-        return
+        raise e
+
     print(json.dumps(uid_list))
     with faktory.connection(faktory=URL_FACTORY) as client:
-        for uid in uid_list[:5]:
+        for uid in uid_list[:2]:
             client.queue('parse_profile', args=[uid], queue='busy')
 
 
@@ -85,7 +86,6 @@ def parse_profile(uid):
         browser.get(url)
     except Exception as e:
         browser.quit()
-        logging.log(logging.CRITICAL, e)
         raise e
 
     soup = BeautifulSoup(browser.page_source, 'lxml')
@@ -96,67 +96,46 @@ def parse_profile(uid):
     # get username
     user_data['username'] = browser.current_url.replace(URL_FACEBOOK_ROOT, '').replace('/', '')
 
-    # Get user's name
-    user_name_h1 = soup.select('h1#seo_h1_tag')
-    if user_name_h1 and len(user_name_h1) == 1 and user_name_h1[0].span:
-        user_data['name'] = user_name_h1[0].span.string
-    else:
-        logging.log(logging.CRITICAL, f'Dom changed for name parse, report admin! Profile : {browser.current_url}')
-        browser.quit()
-        return
-
-    # Get follower number
-    follower_count = soup.find('div', string=re.compile('people follow this'))
-    if follower_count:
-        user_data['followers'] = follower_count.string.split(' ')[0].replace(',', '')
-    else:
-        logging.log(logging.CRITICAL, f'Dom changed for follower count parse, report admin! Profile : {browser.current_url}')
-        browser.quit()
-        return
-
-    # Get likes number
-    likes_count = soup.find('div', string=re.compile('people like this'))
-    if likes_count:
-        user_data['likes'] = likes_count.string.split(' ')[0].replace(',', '')
-    else:
-        logging.log(logging.CRITICAL, f'Dom changed for likes count parse, report admin! Profile : {browser.current_url}')
-        browser.quit()
-        return
-
     try:
+        # Get user's name
+        user_name_h1 = soup.find("h1", id="seo_h1_tag")
+        user_data['name'] = user_name_h1.span.string
+
+        # Get follower number
+        follower_count = soup.find('div', string=re.compile('people follow this'))
+        user_data['followers'] = follower_count.string.split(' ')[0].replace(',', '')
+
+        # Get likes number
+        likes_count = soup.find('div', string=re.compile('people like this'))
+        user_data['likes'] = likes_count.string.split(' ')[0].replace(',', '')
+
+        # Click about tab for contact details.
         about_page = browser.find_element(By.CSS_SELECTOR, "[data-key=tab_about]")
         about_page.click()
-        time.sleep(10)
+        time.sleep(15)
+
+        # CONTACT DETAILS
+        soup = BeautifulSoup(browser.page_source, 'lxml')
+        contact_details = []
+        cd_div_child = soup.find("div", string='CONTACT DETAILS')
+        if cd_div_child:
+            for sibling in cd_div_child.next_siblings:
+                if type(sibling) is Tag:
+                    text_div = sibling.find("div", class_="_50f4")
+                    if text_div:
+                        if is_valid_email(text_div.string) or is_url(text_div.string):
+                            contact_details.append(text_div.string)
+                        elif text_div.string.startswith('Call '):
+                            contact_details.append(text_div.string.replace('Call', '').strip())
+                        elif text_div.parent.name == "a":
+                            contact_details.append(text_div.parent['href'])
+
+            user_data['contact_details'] = contact_details
+        browser.quit()
     except Exception as e:
-        logging.log(logging.CRITICAL, e)
+        logging.log(logging.INFO, f"{browser.current_url}")
         browser.quit()
-        return
-
-    soup = BeautifulSoup(browser.page_source, 'lxml')
-
-    # CONTACT DETAILS
-    contact_details = []
-    cd_div_child = soup.find("div", string='CONTACT DETAILS')
-    if cd_div_child:
-        for sibling in cd_div_child.next_siblings:
-            if type(sibling) is Tag:
-                text_div = sibling.find("div", class_="_50f4")
-                if text_div:
-                    if is_valid_email(text_div.string) or is_url(text_div.string):
-                        contact_details.append(text_div.string)
-                    elif text_div.string.startswith('Call '):
-                        contact_details.append(text_div.string.replace('Call', '').strip())
-                    elif text_div.parent.name == "a":
-                        contact_details.append(text_div.parent['href'])
-
-        user_data['contact_details'] = contact_details
-
-    else:
-        logging.log(logging.CRITICAL, f'Dom changed for CONTACT DETAILS, report admin! Profile : {browser.current_url}')
-        browser.quit()
-        return
-
-    browser.quit()
+        raise e
 
     mongo_conn = MongoConnnection.Instance()
     mongo_conn.get_collection("user_details").find_one_and_replace({'uid': user_data['uid']}, user_data, upsert=True)
@@ -182,7 +161,6 @@ def parse_posts(uid, username):
             last_height = new_height
     except Exception as e:
         browser.quit()
-        logging.log(logging.CRITICAL, e)
         raise e
 
     soup = BeautifulSoup(browser.page_source, 'lxml')
@@ -190,46 +168,46 @@ def parse_posts(uid, username):
     mongo_conn = MongoConnnection.Instance()
 
     for item in k:
-        # Post Text
-        actual_posts = item.find_all(attrs={"data-testid": "post_message"})
-        post_dict = dict()
-        post_dict['uid'] = uid
+        try:
+            # Post Text
+            actual_posts = item.find_all(attrs={"data-testid": "post_message"})
+            post_dict = dict()
+            post_dict['uid'] = uid
 
-        dt = item.find("abbr")
-        if dt:
+            dt = item.find("abbr")
             post_dict['utc_timestamp'] = dt['data-utime']
             post_ids = [each for each in re.findall("/(\\d+)?", dt.parent['href']) if each]
             post_dict['post_id'] = post_ids[0]
-        else:
-            logging.log(logging.CRITICAL, 'Dom changed for post date time, report admin')
+
+            for posts in actual_posts:
+                paragraphs = posts.find_all('p')
+                text = ""
+                for index in range(0, len(paragraphs)):
+                    text += paragraphs[index].text
+
+                post_dict['Post'] = text
+                post_dict['hashtag'] = re.findall("#\\w+", text)
+
+            # Links
+            post_links = item.find_all(class_="_6ks")
+            p_links = []
+            for postLink in post_links:
+                if postLink.a:
+                    p_links.append(postLink.find('a').get('href'))
+            post_dict['Link'] = p_links
+
+            # Images
+            post_pictures = item.find_all(class_="scaledImageFitWidth img")
+            post_images = []
+            for postPicture in post_pictures:
+                post_images.append(postPicture.get('src'))
+            post_dict['Image'] = post_images
+
+            mongo_conn.get_collection("posts").find_one_and_replace({'uid': uid, 'post_id': post_dict['post_id']},
+                                                                    post_dict, upsert=True)
+        except Exception as e:
+            logging.log(logging.CRITICAL, e)
             continue
-
-        for posts in actual_posts:
-            paragraphs = posts.find_all('p')
-            text = ""
-            for index in range(0, len(paragraphs)):
-                text += paragraphs[index].text
-
-            post_dict['Post'] = text
-            post_dict['hashtag'] = re.findall("#\\w+", text)
-
-        # Links
-        post_links = item.find_all(class_="_6ks")
-        p_links = []
-        for postLink in post_links:
-            if postLink.a:
-                p_links.append(postLink.find('a').get('href'))
-        post_dict['Link'] = p_links
-
-        # Images
-        post_pictures = item.find_all(class_="scaledImageFitWidth img")
-        post_images = []
-        for postPicture in post_pictures:
-            post_images.append(postPicture.get('src'))
-        post_dict['Image'] = post_images
-
-        mongo_conn.get_collection("posts").find_one_and_replace({'uid': uid, 'post_id': post_dict['post_id']},
-                                                                post_dict, upsert=True)
     browser.quit()
 
 
