@@ -101,7 +101,7 @@ def parse_profile(uid):
     if user_name_h1 and len(user_name_h1) == 1 and user_name_h1[0].span:
         user_data['name'] = user_name_h1[0].span.string
     else:
-        logging.log(logging.CRITICAL, 'Dom changed for name parse, report admin!')
+        logging.log(logging.CRITICAL, f'Dom changed for name parse, report admin! Profile : {browser.current_url}')
         browser.quit()
         return
 
@@ -110,7 +110,7 @@ def parse_profile(uid):
     if follower_count:
         user_data['followers'] = follower_count.string.split(' ')[0].replace(',', '')
     else:
-        logging.log(logging.CRITICAL, 'Dom changed for follower count parse, report admin!')
+        logging.log(logging.CRITICAL, f'Dom changed for follower count parse, report admin! Profile : {browser.current_url}')
         browser.quit()
         return
 
@@ -119,7 +119,7 @@ def parse_profile(uid):
     if likes_count:
         user_data['likes'] = likes_count.string.split(' ')[0].replace(',', '')
     else:
-        logging.log(logging.CRITICAL, 'Dom changed for likes count parse, report admin!')
+        logging.log(logging.CRITICAL, f'Dom changed for likes count parse, report admin! Profile : {browser.current_url}')
         browser.quit()
         return
 
@@ -152,7 +152,7 @@ def parse_profile(uid):
         user_data['contact_details'] = contact_details
 
     else:
-        logging.log(logging.CRITICAL, 'Dom changed for CONTACT DETAILS, report admin')
+        logging.log(logging.CRITICAL, f'Dom changed for CONTACT DETAILS, report admin! Profile : {browser.current_url}')
         browser.quit()
         return
 
