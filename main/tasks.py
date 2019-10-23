@@ -72,7 +72,7 @@ def live_see_all():
 
     print(json.dumps(uid_list))
     with faktory.connection(faktory=URL_FACTORY) as client:
-        for uid in uid_list[:2]:
+        for uid in uid_list[:10]:
             client.queue('parse_profile', args=[uid], queue='busy')
 
 
