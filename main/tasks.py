@@ -103,11 +103,21 @@ def parse_profile(uid):
 
         # Get follower number
         follower_count = soup.find('div', string=re.compile('people follow this'))
-        user_data['followers'] = follower_count.string.split(' ')[0].replace(',', '')
+        if follower_count:
+            res = re.findall('[0-9,]+', follower_count.string)
+            if res:
+                user_data['followers'] = res[0].replace(',', '')
+            else:
+                user_data['followers'] = '0'
 
         # Get likes number
         likes_count = soup.find('div', string=re.compile('people like this'))
-        user_data['likes'] = likes_count.string.split(' ')[0].replace(',', '')
+        if likes_count:
+            res = re.findall('[0-9,]+', likes_count.string)
+            if res:
+                user_data['likes'] = res[0].replace(',', '')
+            else:
+                user_data['likes'] = '0'
 
         # Click about tab for contact details.
         about_page = browser.find_element(By.CSS_SELECTOR, "[data-key=tab_about]")
