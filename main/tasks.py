@@ -50,13 +50,13 @@ def live_see_all():
             if new_height == last_height:
                 break
             last_height = new_height
-
+        soup = BeautifulSoup(browser.page_source, 'lxml')
+        browser.quit()
     except Exception as e:
         browser.quit()
         raise e
 
     try:
-        soup = BeautifulSoup(browser.page_source, 'lxml')
         link_tags = soup.find_all("a")
         uid_list = []
         for tag in link_tags:
@@ -64,13 +64,10 @@ def live_see_all():
                 uid = tag['uid']
                 if uid not in uid_list:
                     uid_list.append(uid)
-        browser.quit()
-
     except Exception as e:
-        browser.quit()
         raise e
 
-    logging.log(logging.DEBUG,f"All live users UIDs : {json.dumps(uid_list)}")
+    logging.log(logging.INFO, f"All live users UIDs : {json.dumps(uid_list)}")
     with faktory.connection(faktory=URL_FACTORY) as client:
         for uid in uid_list[:10]:
             client.queue('parse_profile', args=[uid], queue='busy')
@@ -84,19 +81,21 @@ def parse_profile(uid):
         wait = WebDriverWait(browser, 10)
         wait.until(EC.url_changes(url))
         browser.get(url)
+
+        soup = BeautifulSoup(browser.page_source, 'lxml')
+        current_url = browser.current_url
+        mongo_conn = MongoConnnection.Instance()
     except Exception as e:
         browser.quit()
         raise e
 
     try:
-
-        soup = BeautifulSoup(browser.page_source, 'lxml')
         user_data = dict()
         user_data['uid'] = uid
-        user_data['profile_url'] = browser.current_url
+        user_data['profile_url'] = current_url
 
         # get username
-        user_data['username'] = browser.current_url.replace(URL_FACEBOOK_ROOT, '').replace('/', '')
+        user_data['username'] = current_url.replace(URL_FACEBOOK_ROOT, '').replace('/', '')
 
         # Get user's name
         user_name_h1 = soup.find("h1", id="seo_h1_tag")
@@ -144,14 +143,13 @@ def parse_profile(uid):
             user_data['contact_details'] = contact_details
         browser.quit()
     except Exception as e:
-        logging.log(logging.CRITICAL, f"Parse profile failed : {user_data['profile_url']}")
         browser.quit()
+        logging.log(logging.CRITICAL, f"Parse profile failed : {user_data['profile_url']}")
         raise e
 
-    mongo_conn = MongoConnnection.Instance()
     mongo_conn.get_collection("user_details").find_one_and_replace({'uid': user_data['uid']}, user_data, upsert=True)
 
-    logging.log(logging.DEBUG, f"Profile : {user_data['profile_url']} User Data : {user_data}")
+    logging.log(logging.INFO, f"Profile : {user_data['profile_url']} User Data : {user_data}")
     with faktory.connection(faktory=URL_FACTORY) as client:
         if user_data.get('username', None):
             client.queue('parse_posts', args=[user_data['uid'], user_data['username']], queue='busy')
@@ -164,11 +162,15 @@ def parse_posts(uid, username):
         browser = get_browser()
         browser.get(url)
         last_height = browser.execute_script("return document.body.scrollHeight")
+        counter = 0
         while True:
             browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(5)
             new_height = browser.execute_script("return document.body.scrollHeight")
             if new_height == last_height:
+                break
+            counter += 1
+            if counter >= 3:
                 break
             last_height = new_height
     except Exception as e:
@@ -179,54 +181,54 @@ def parse_posts(uid, username):
         soup = BeautifulSoup(browser.page_source, 'lxml')
         k = soup.find_all(class_="_5pcr userContentWrapper")
         mongo_conn = MongoConnnection.Instance()
-
-        for item in k:
-            try:
-                # Post Text
-                actual_posts = item.find_all(attrs={"data-testid": "post_message"})
-                post_dict = dict()
-                post_dict['uid'] = uid
-
-                dt = item.find("abbr")
-                post_dict['utc_timestamp'] = dt['data-utime']
-                post_ids = [each for each in re.findall("/(\\d+)?", dt.parent['href']) if each]
-                post_dict['post_id'] = post_ids[0]
-
-                for posts in actual_posts:
-                    paragraphs = posts.find_all('p')
-                    text = ""
-                    for index in range(0, len(paragraphs)):
-                        text += paragraphs[index].text
-
-                    post_dict['Post'] = text
-                    post_dict['hashtag'] = re.findall("#\\w+", text)
-
-                # Links
-                post_links = item.find_all(class_="_6ks")
-                p_links = []
-                for postLink in post_links:
-                    if postLink.a:
-                        p_links.append(postLink.find('a').get('href'))
-                post_dict['Link'] = p_links
-
-                # Images
-                post_pictures = item.find_all(class_="scaledImageFitWidth img")
-                post_images = []
-                for postPicture in post_pictures:
-                    post_images.append(postPicture.get('src'))
-                post_dict['Image'] = post_images
-
-                mongo_conn.get_collection("posts").find_one_and_replace({'uid': uid, 'post_id': post_dict['post_id']},
-                                                                        post_dict, upsert=True)
-            except Exception as e:
-                logging.log(logging.CRITICAL, e)
-                continue
-
+        browser.quit()
     except Exception as e:
         browser.quit()
         raise e
 
-    logging.log(logging.DEBUG,f"Parse posts done of user {username}")
+    for item in k:
+        try:
+            # Post Text
+            actual_posts = item.find_all(attrs={"data-testid": "post_message"})
+            post_dict = dict()
+            post_dict['uid'] = uid
+
+            dt = item.find("abbr")
+            post_dict['utc_timestamp'] = dt['data-utime']
+            post_ids = [each for each in re.findall("/(\\d+)?", dt.parent['href']) if each]
+            post_dict['post_id'] = post_ids[0]
+
+            for posts in actual_posts:
+                paragraphs = posts.find_all('p')
+                text = ""
+                for index in range(0, len(paragraphs)):
+                    text += paragraphs[index].text
+
+                post_dict['Post'] = text
+                post_dict['hashtag'] = re.findall("#\\w+", text)
+
+            # Links
+            post_links = item.find_all(class_="_6ks")
+            p_links = []
+            for postLink in post_links:
+                if postLink.a:
+                    p_links.append(postLink.find('a').get('href'))
+            post_dict['Link'] = p_links
+
+            # Images
+            post_pictures = item.find_all(class_="scaledImageFitWidth img")
+            post_images = []
+            for postPicture in post_pictures:
+                post_images.append(postPicture.get('src'))
+            post_dict['Image'] = post_images
+
+            mongo_conn.get_collection("posts").find_one_and_replace({'uid': uid, 'post_id': post_dict['post_id']},
+                                                                    post_dict, upsert=True)
+        except Exception as e:
+            logging.log(logging.CRITICAL, e)
+            continue
+
+    logging.log(logging.INFO,f"Parse posts done for user: {username}")
     browser.quit()
 
 
