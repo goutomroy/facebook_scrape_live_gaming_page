@@ -70,7 +70,7 @@ def live_see_all():
         browser.quit()
         raise e
 
-    print(json.dumps(uid_list))
+    logging.log(logging.INFO,f"All live users UIDs : {json.dumps(uid_list)}")
     with faktory.connection(faktory=URL_FACTORY) as client:
         for uid in uid_list[:10]:
             client.queue('parse_profile', args=[uid], queue='busy')
@@ -143,13 +143,14 @@ def parse_profile(uid):
             user_data['contact_details'] = contact_details
         browser.quit()
     except Exception as e:
-        logging.log(logging.INFO, f"{browser.current_url}")
+        logging.log(logging.CRITICAL, f"Parse profile failed : {browser.current_url}")
         browser.quit()
         raise e
 
     mongo_conn = MongoConnnection.Instance()
     mongo_conn.get_collection("user_details").find_one_and_replace({'uid': user_data['uid']}, user_data, upsert=True)
 
+    logging.log(logging.INFO, f"Profile : {user_data['profile_url']} User Data : {user_data}")
     with faktory.connection(faktory=URL_FACTORY) as client:
         if user_data.get('username', None):
             client.queue('parse_posts', args=[user_data['uid'], user_data['username']], queue='busy')
@@ -218,6 +219,7 @@ def parse_posts(uid, username):
         except Exception as e:
             logging.log(logging.CRITICAL, e)
             continue
+    logging.log(logging.INFO,f"Parse posts done of user {username}")
     browser.quit()
 
 
