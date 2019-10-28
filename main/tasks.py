@@ -3,7 +3,6 @@ import logging
 import re
 import time
 import urllib
-
 import faktory
 from bs4 import BeautifulSoup, Tag
 from pymongo import MongoClient
@@ -169,10 +168,8 @@ def parse_posts(uid, username, num_post_scroll):
             browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(5)
             new_height = browser.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                break
             counter += 1
-            if type(num_post_scroll) == int and counter >= num_post_scroll:
+            if new_height == last_height or type(num_post_scroll) == int and counter >= num_post_scroll:
                 break
             last_height = new_height
     except Exception as e:
