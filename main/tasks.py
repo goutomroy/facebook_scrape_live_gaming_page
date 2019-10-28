@@ -30,7 +30,6 @@ def get_browser():
     fp.update_preferences()
 
     browser = webdriver.Firefox(executable_path=MOZILLA_DRIVER_PATH, options=options, firefox_profile=fp)
-    browser.implicitly_wait(30)
     browser.maximize_window()
     browser.delete_all_cookies()
     return browser
