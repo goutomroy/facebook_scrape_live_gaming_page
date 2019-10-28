@@ -12,7 +12,6 @@ update variable `MOZILLA_DRIVER_PATH` in `utils.py`.
 * Install MongoDB and create database `aggero_fb` and two collection `user_details` and `posts`.
 * pip install -r requirements.txt
 * Change `URL_FACTORY` password in `utils.py` file.
-* Configure `MongoConnnection.py` file.
 
 #### Run
 * Navigate to `main` package.
