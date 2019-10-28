@@ -13,7 +13,18 @@ update variable `MOZILLA_DRIVER_PATH` in `utils.py`.
 * pip install -r requirements.txt
 * Change `URL_FACTORY` password in `utils.py` file.
 * Configure `MongoConnnection.py` file.
-* Run first `consumer.py` and then `producer.py`. Scraping should be started now.
+
+#### Run
+* Navigate to `main` package.
+* First run `python3 consumer.py`
+* Then `python3 producer.py -nup 10 -nps 3`. You must need to provide `-nup` and `-nps`
+     * `-nup` - Number of live users to parse
+        * Choices : `int` value greater than 0 or `str` value `all` 
+     * `-nps` - Number of scroll while parsing user posts. Every scroll gives about 18 posts. 
+        * Choices : `int` value greater than 0 or `str` value `all` 
+     * `-nup 10 -nps 3` works best for testing, `all` may be used in production.
+  
+* Scraping should be started now.
 
 #### Todo 
 * Configure Tor for proxy.

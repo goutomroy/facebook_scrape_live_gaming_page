@@ -1,10 +1,12 @@
 import logging
 from faktory import Worker
-from main.tasks import live_see_all, parse_profile, parse_posts
-from utils.utils import URL_FACTORY
 import multiprocessing
+from tasks import live_see_all, parse_profile, parse_posts
+from utils import URL_FACTORY
+
 
 logging.basicConfig(level=logging.INFO)
+
 
 if __name__ == '__main__':
     concurrency = multiprocessing.cpu_count()

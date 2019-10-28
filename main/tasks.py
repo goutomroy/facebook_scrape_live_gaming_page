@@ -1,20 +1,19 @@
 import json
 import logging
-import os
+import re
 import time
 import urllib
+
 import faktory
 from bs4 import BeautifulSoup, Tag
-from selenium.common.exceptions import TimeoutException, WebDriverException, NoSuchElementException
+from pymongo import MongoClient
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils.MongoConnection import MongoConnnection
-from utils.utils import URL_FACTORY, URL_FACEBOOK_ROOT, is_valid_email, is_url, URL_FACEBOOK_LIVE_SEE_ALL, \
-    MOZILLA_DRIVER_PATH
-from selenium import webdriver
-import re
+from selenium.webdriver.support.wait import WebDriverWait
+from utils import URL_FACTORY, URL_FACEBOOK_ROOT, is_valid_email, is_url, URL_FACEBOOK_LIVE_SEE_ALL, \
+    MOZILLA_DRIVER_PATH, MONGODB_URI
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,7 +37,7 @@ def get_browser():
     return browser
 
 
-def live_see_all():
+def live_see_all(num_user_to_parse, num_post_scroll):
     try:
         browser = get_browser()
         browser.get(URL_FACEBOOK_LIVE_SEE_ALL)
@@ -69,11 +68,13 @@ def live_see_all():
 
     logging.log(logging.INFO, f"All live users UIDs : {json.dumps(uid_list)}")
     with faktory.connection(faktory=URL_FACTORY) as client:
-        for uid in uid_list[:10]:
-            client.queue('parse_profile', args=[uid], queue='busy')
+        if type(num_user_to_parse) == int and num_user_to_parse < len(uid_list):
+            uid_list = uid_list[:num_user_to_parse]
+        for uid in uid_list:
+            client.queue('parse_profile', args=[uid, num_post_scroll], queue='busy')
 
 
-def parse_profile(uid):
+def parse_profile(uid, num_post_scroll):
 
     try:
         url = urllib.parse.urljoin(URL_FACEBOOK_ROOT, uid)
@@ -84,7 +85,6 @@ def parse_profile(uid):
 
         soup = BeautifulSoup(browser.page_source, 'lxml')
         current_url = browser.current_url
-        mongo_conn = MongoConnnection.Instance()
     except Exception as e:
         browser.quit()
         raise e
@@ -98,8 +98,9 @@ def parse_profile(uid):
         user_data['username'] = current_url.replace(URL_FACEBOOK_ROOT, '').replace('/', '')
 
         # Get user's name
-        user_name_h1 = soup.find("h1", id="seo_h1_tag")
-        user_data['name'] = user_name_h1.span.string
+        # user_name_h1 = soup.find("h1", id="seo_h1_tag")
+        user_name_div = soup.find("div", id="u_0_0")
+        user_data['name'] = user_name_div.a.span.string
 
         # Get follower number
         follower_count = soup.find('div', string=re.compile('people follow this'))
@@ -147,15 +148,16 @@ def parse_profile(uid):
         logging.log(logging.CRITICAL, f"Parse profile failed : {user_data['profile_url']}")
         raise e
 
-    mongo_conn.get_collection("user_details").find_one_and_replace({'uid': user_data['uid']}, user_data, upsert=True)
+    m_connection = MongoClient(MONGODB_URI)
+    with m_connection:
+        m_connection.aggero_fb.user_details.find_one_and_replace({'uid': user_data['uid']}, user_data, upsert=True)
 
     logging.log(logging.INFO, f"Profile : {user_data['profile_url']} User Data : {user_data}")
     with faktory.connection(faktory=URL_FACTORY) as client:
-        if user_data.get('username', None):
-            client.queue('parse_posts', args=[user_data['uid'], user_data['username']], queue='busy')
+        client.queue('parse_posts', args=[user_data['uid'], user_data['username'], num_post_scroll], queue='busy')
 
 
-def parse_posts(uid, username):
+def parse_posts(uid, username, num_post_scroll):
 
     try:
         url = '/'.join([URL_FACEBOOK_ROOT, 'pg', username, 'posts/'])
@@ -170,7 +172,7 @@ def parse_posts(uid, username):
             if new_height == last_height:
                 break
             counter += 1
-            if counter >= 3:
+            if type(num_post_scroll) == int and counter >= num_post_scroll:
                 break
             last_height = new_height
     except Exception as e:
@@ -180,53 +182,54 @@ def parse_posts(uid, username):
     try:
         soup = BeautifulSoup(browser.page_source, 'lxml')
         k = soup.find_all(class_="_5pcr userContentWrapper")
-        mongo_conn = MongoConnnection.Instance()
         browser.quit()
     except Exception as e:
         browser.quit()
         raise e
 
-    for item in k:
-        try:
-            # Post Text
-            actual_posts = item.find_all(attrs={"data-testid": "post_message"})
-            post_dict = dict()
-            post_dict['uid'] = uid
+    m_connection = MongoClient(MONGODB_URI)
+    with m_connection:
+        for item in k:
+            try:
+                # Post Text
+                actual_posts = item.find_all(attrs={"data-testid": "post_message"})
+                post_dict = dict()
+                post_dict['uid'] = uid
 
-            dt = item.find("abbr")
-            post_dict['utc_timestamp'] = dt['data-utime']
-            post_ids = [each for each in re.findall("/(\\d+)?", dt.parent['href']) if each]
-            post_dict['post_id'] = post_ids[0]
+                dt = item.find("abbr")
+                post_dict['utc_timestamp'] = dt['data-utime']
+                post_ids = [each for each in re.findall("/(\\d+)?", dt.parent['href']) if each]
+                post_dict['post_id'] = post_ids[0]
 
-            for posts in actual_posts:
-                paragraphs = posts.find_all('p')
-                text = ""
-                for index in range(0, len(paragraphs)):
-                    text += paragraphs[index].text
+                for posts in actual_posts:
+                    paragraphs = posts.find_all('p')
+                    text = ""
+                    for index in range(0, len(paragraphs)):
+                        text += paragraphs[index].text
 
-                post_dict['Post'] = text
-                post_dict['hashtag'] = re.findall("#\\w+", text)
+                    post_dict['Post'] = text
+                    post_dict['hashtag'] = re.findall("#\\w+", text)
 
-            # Links
-            post_links = item.find_all(class_="_6ks")
-            p_links = []
-            for postLink in post_links:
-                if postLink.a:
-                    p_links.append(postLink.find('a').get('href'))
-            post_dict['Link'] = p_links
+                # Links
+                post_links = item.find_all(class_="_6ks")
+                p_links = []
+                for postLink in post_links:
+                    if postLink.a:
+                        p_links.append(postLink.find('a').get('href'))
+                post_dict['Link'] = p_links
 
-            # Images
-            post_pictures = item.find_all(class_="scaledImageFitWidth img")
-            post_images = []
-            for postPicture in post_pictures:
-                post_images.append(postPicture.get('src'))
-            post_dict['Image'] = post_images
+                # Images
+                post_pictures = item.find_all(class_="scaledImageFitWidth img")
+                post_images = []
+                for postPicture in post_pictures:
+                    post_images.append(postPicture.get('src'))
+                post_dict['Image'] = post_images
 
-            mongo_conn.get_collection("posts").find_one_and_replace({'uid': uid, 'post_id': post_dict['post_id']},
-                                                                    post_dict, upsert=True)
-        except Exception as e:
-            logging.log(logging.CRITICAL, e)
-            continue
+                m_connection.aggero_fb.posts.find_one_and_replace({'uid': uid, 'post_id': post_dict['post_id']},
+                                                                        post_dict, upsert=True)
+            except Exception as e:
+                logging.log(logging.CRITICAL, e)
+                continue
 
     logging.log(logging.INFO,f"Parse posts done for user: {username}")
     browser.quit()

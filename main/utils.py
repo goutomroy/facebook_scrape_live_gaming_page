@@ -9,8 +9,10 @@ URL_FACEBOOK_ROOT = 'https://www.facebook.com'
 URL_FACEBOOK_GAMING_HOME = 'https://www.facebook.com/gaming/?view=home'
 URL_FACEBOOK_LIVE_SEE_ALL = "https://www.facebook.com/gaming/?section_id=dmg6MTg5MTU5MTMzMDg4MTE5Ng%3D%3D&view=all&previous_view=home"
 
-PROXY = "socks5://localhost:9050"
 
+MONGODB_URI = 'mongodb://goutom:123456@localhost:27017/?tz_aware=true&authSource=admin'
+
+PROXY = "socks5://localhost:9050"
 PROXIES = {
     'http': 'socks5://127.0.0.1:9050',
     'https': 'socks5://127.0.0.1:9050'
