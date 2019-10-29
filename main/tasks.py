@@ -9,11 +9,9 @@ from pymongo import MongoClient
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-from utils import URL_FACTORY, URL_FACEBOOK_ROOT, is_valid_email, is_url, URL_FACEBOOK_LIVE_SEE_ALL, \
-    MOZILLA_DRIVER_PATH, MONGODB_URI
-
+from webdriver_manager.firefox import GeckoDriverManager
+from utils import URL_FACTORY, URL_FACEBOOK_ROOT, is_valid_email, is_url, URL_FACEBOOK_LIVE_SEE_ALL, MONGODB_URI
 from selenium.webdriver.support import expected_conditions as EC
 
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +29,7 @@ def get_browser():
     fp.set_preference("network.http.use-cache", False)
     fp.update_preferences()
 
-    browser = webdriver.Firefox(executable_path=MOZILLA_DRIVER_PATH, options=options, firefox_profile=fp)
+    browser = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options, firefox_profile=fp)
     browser.maximize_window()
     browser.delete_all_cookies()
     return browser
@@ -80,7 +78,7 @@ def parse_profile(uid, num_post_scroll):
         url = urllib.parse.urljoin(URL_FACEBOOK_ROOT, uid)
         browser = get_browser()
         browser.get(url)
-        WebDriverWait(browser, 10).until(EC.url_changes(url))
+        # WebDriverWait(browser, 10).until(EC.url_changes(url))
 
         soup = BeautifulSoup(browser.page_source, 'lxml')
         current_url = browser.current_url
@@ -151,7 +149,7 @@ def parse_profile(uid, num_post_scroll):
     with m_connection:
         m_connection.aggero_fb.user_details.find_one_and_replace({'uid': user_data['uid']}, user_data, upsert=True)
 
-    logging.log(logging.INFO, f"Profile : {user_data['profile_url']} User Data : {user_data}")
+    logging.log(logging.INFO, f"User Data : {user_data}")
     with faktory.connection(faktory=URL_FACTORY) as client:
         client.queue('parse_posts', args=[user_data['uid'], user_data['username'], num_post_scroll], queue='busy')
 
