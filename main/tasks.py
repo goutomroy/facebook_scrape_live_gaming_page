@@ -14,6 +14,8 @@ from selenium.webdriver.support.wait import WebDriverWait
 from utils import URL_FACTORY, URL_FACEBOOK_ROOT, is_valid_email, is_url, URL_FACEBOOK_LIVE_SEE_ALL, \
     MOZILLA_DRIVER_PATH, MONGODB_URI
 
+from selenium.webdriver.support import expected_conditions as EC
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -64,7 +66,7 @@ def live_see_all(num_user_to_parse, num_post_scroll):
     except Exception as e:
         raise e
 
-    logging.log(logging.INFO, f"All live users UIDs : {json.dumps(uid_list)}")
+    logging.log(logging.INFO, f"Total live users : {len(uid_list)}")
     with faktory.connection(faktory=URL_FACTORY) as client:
         if type(num_user_to_parse) == int and num_user_to_parse < len(uid_list):
             uid_list = uid_list[:num_user_to_parse]
@@ -77,9 +79,8 @@ def parse_profile(uid, num_post_scroll):
     try:
         url = urllib.parse.urljoin(URL_FACEBOOK_ROOT, uid)
         browser = get_browser()
-        wait = WebDriverWait(browser, 10)
-        wait.until(EC.url_changes(url))
         browser.get(url)
+        WebDriverWait(browser, 10).until(EC.url_changes(url))
 
         soup = BeautifulSoup(browser.page_source, 'lxml')
         current_url = browser.current_url
@@ -121,7 +122,7 @@ def parse_profile(uid, num_post_scroll):
         # Click about tab for contact details.
         about_page = browser.find_element(By.CSS_SELECTOR, "[data-key=tab_about]")
         about_page.click()
-        time.sleep(15)
+        WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.ID, "PagesProfileAboutInfoPagelet_"+str(uid))))
 
         # CONTACT DETAILS
         soup = BeautifulSoup(browser.page_source, 'lxml')
@@ -165,7 +166,7 @@ def parse_posts(uid, username, num_post_scroll):
         counter = 0
         while True:
             browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(5)
+            time.sleep(8)
             new_height = browser.execute_script("return document.body.scrollHeight")
             counter += 1
             if new_height == last_height or type(num_post_scroll) == int and counter >= num_post_scroll:
@@ -227,7 +228,7 @@ def parse_posts(uid, username, num_post_scroll):
                 logging.log(logging.CRITICAL, e)
                 continue
 
-    logging.log(logging.INFO,f"Parse posts done for user: {username}")
+    logging.log(logging.INFO,f"Parse posts done for user: {username} and number of posts : {len(k)}")
     browser.quit()
 
 
