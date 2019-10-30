@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import time
 import urllib
@@ -7,6 +8,7 @@ import faktory
 from bs4 import BeautifulSoup, Tag
 from pymongo import MongoClient
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.wait import WebDriverWait
@@ -17,7 +19,7 @@ from selenium.webdriver.support import expected_conditions as EC
 logging.basicConfig(level=logging.INFO)
 
 
-def get_browser():
+def get_driver():
 
     options = Options()
     options.headless = True
@@ -29,28 +31,40 @@ def get_browser():
     fp.set_preference("network.http.use-cache", False)
     fp.update_preferences()
 
-    browser = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options, firefox_profile=fp)
-    browser.maximize_window()
-    browser.delete_all_cookies()
-    return browser
+    driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options, firefox_profile=fp)
+    driver.maximize_window()
+    driver.delete_all_cookies()
+    return driver
+
+
+def check_height(driver, old_height):
+    new_height = driver.execute_script("return document.body.scrollHeight")
+    return new_height != old_height
 
 
 def live_see_all(num_user_to_parse, num_post_scroll):
     try:
-        browser = get_browser()
-        browser.get(URL_FACEBOOK_LIVE_SEE_ALL)
-        last_height = browser.execute_script("return document.body.scrollHeight")
+        driver = get_driver()
+        driver.get(URL_FACEBOOK_LIVE_SEE_ALL)
+
+        scroll_time = 8
+        total_scrolls = 150
+        current_scrolls = 0
         while True:
-            browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(5)
-            new_height = browser.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
+            try:
+                if current_scrolls == total_scrolls:
+                    break
+                old_height = driver.execute_script("return document.body.scrollHeight")
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                WebDriverWait(driver, scroll_time, 1).until(lambda driver: check_height(driver, old_height))
+                current_scrolls += 1
+            except TimeoutException:
                 break
-            last_height = new_height
-        soup = BeautifulSoup(browser.page_source, 'lxml')
-        browser.quit()
+
+        soup = BeautifulSoup(driver.page_source, 'lxml')
+        driver.quit()
     except Exception as e:
-        browser.quit()
+        driver.quit()
         raise e
 
     try:
@@ -76,14 +90,13 @@ def parse_profile(uid, num_post_scroll):
 
     try:
         url = urllib.parse.urljoin(URL_FACEBOOK_ROOT, uid)
-        browser = get_browser()
-        browser.get(url)
-        # WebDriverWait(browser, 10).until(EC.url_changes(url))
+        driver = get_driver()
+        driver.get(url)
 
-        soup = BeautifulSoup(browser.page_source, 'lxml')
-        current_url = browser.current_url
+        soup = BeautifulSoup(driver.page_source, 'lxml')
+        current_url = driver.current_url
     except Exception as e:
-        browser.quit()
+        driver.quit()
         raise e
 
     try:
@@ -118,12 +131,12 @@ def parse_profile(uid, num_post_scroll):
                 user_data['likes'] = '0'
 
         # Click about tab for contact details.
-        about_page = browser.find_element(By.CSS_SELECTOR, "[data-key=tab_about]")
+        about_page = driver.find_element(By.CSS_SELECTOR, "[data-key=tab_about]")
         about_page.click()
-        WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.ID, "PagesProfileAboutInfoPagelet_"+str(uid))))
+        WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.ID, "PagesProfileAboutInfoPagelet_"+str(uid))))
 
         # CONTACT DETAILS
-        soup = BeautifulSoup(browser.page_source, 'lxml')
+        soup = BeautifulSoup(driver.page_source, 'lxml')
         contact_details = []
         cd_div_child = soup.find("div", string='CONTACT DETAILS')
         if cd_div_child:
@@ -139,9 +152,9 @@ def parse_profile(uid, num_post_scroll):
                             contact_details.append(text_div.parent['href'])
 
             user_data['contact_details'] = contact_details
-        browser.quit()
+        driver.quit()
     except Exception as e:
-        browser.quit()
+        driver.quit()
         logging.log(logging.CRITICAL, f"Parse profile failed : {user_data['profile_url']}")
         raise e
 
@@ -158,28 +171,33 @@ def parse_posts(uid, username, num_post_scroll):
 
     try:
         url = '/'.join([URL_FACEBOOK_ROOT, 'pg', username, 'posts/'])
-        browser = get_browser()
-        browser.get(url)
-        last_height = browser.execute_script("return document.body.scrollHeight")
-        counter = 0
+        driver = get_driver()
+        driver.get(url)
+
+        scroll_time = 8
+        total_scrolls = num_post_scroll
+        current_scrolls = 0
+
         while True:
-            browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(8)
-            new_height = browser.execute_script("return document.body.scrollHeight")
-            counter += 1
-            if new_height == last_height or type(num_post_scroll) == int and counter >= num_post_scroll:
+            try:
+                if current_scrolls == total_scrolls:
+                    break
+                old_height = driver.execute_script("return document.body.scrollHeight")
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                WebDriverWait(driver, scroll_time, 1).until(lambda driver: check_height(driver, old_height))
+                current_scrolls += 1
+            except TimeoutException:
                 break
-            last_height = new_height
     except Exception as e:
-        browser.quit()
+        driver.quit()
         raise e
 
     try:
-        soup = BeautifulSoup(browser.page_source, 'lxml')
+        soup = BeautifulSoup(driver.page_source, 'lxml')
         k = soup.find_all(class_="_5pcr userContentWrapper")
-        browser.quit()
+        driver.quit()
     except Exception as e:
-        browser.quit()
+        driver.quit()
         raise e
 
     m_connection = MongoClient(MONGODB_URI)
@@ -226,8 +244,8 @@ def parse_posts(uid, username, num_post_scroll):
                 logging.log(logging.CRITICAL, e)
                 continue
 
-    logging.log(logging.INFO,f"Parse posts done for user: {username} and number of posts : {len(k)}")
-    browser.quit()
+    logging.log(logging.INFO, f"Parse posts done for user: {os.path.join(URL_FACEBOOK_ROOT, username)}")
+    driver.quit()
 
 
 

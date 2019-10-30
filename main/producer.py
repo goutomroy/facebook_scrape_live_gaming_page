@@ -13,6 +13,7 @@ def main():
     c_args = my_parser.parse_args()
     with faktory.connection(faktory=URL_FACTORY) as client:
         client.queue('live_see_all', args=[c_args.num_user_to_parse, c_args.num_post_scroll], queue='default')
+        # client.queue('parse_posts', args=['1774846095963174', 'michaelfeeds', 2], queue='busy')
 
 
 if __name__ == '__main__':
