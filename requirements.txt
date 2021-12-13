@@ -9,7 +9,7 @@ crayons==0.3.0
 cryptography==2.7
 faktory==0.4.0
 idna==2.8
-lxml==4.4.1
+lxml==4.6.5
 pip-autoremove==0.9.1
 pycparser==2.19
 pymongo==3.9.0
